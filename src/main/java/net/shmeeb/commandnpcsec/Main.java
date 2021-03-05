@@ -61,7 +61,7 @@ public class Main {
     }
 
     @Listener
-    public void entityInteract(InteractEntityEvent ev, @First Player player) {
+    public void entityInteract(InteractEntityEvent.Secondary.MainHand ev, @First Player player) {
         if (setting.containsKey(player.getUniqueId())) {
             ev.getTargetEntity().offer(new Settings(setting.get(player.getUniqueId())));
             setting.remove(player.getUniqueId());
