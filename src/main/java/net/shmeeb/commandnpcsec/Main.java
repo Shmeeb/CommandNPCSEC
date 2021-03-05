@@ -25,6 +25,7 @@ import org.spongepowered.api.event.game.state.GameInitializationEvent;
 import org.spongepowered.api.event.game.state.GamePreInitializationEvent;
 import org.spongepowered.api.plugin.Plugin;
 import org.spongepowered.api.text.Text;
+import org.spongepowered.api.text.action.TextActions;
 import org.spongepowered.api.text.serializer.TextSerializers;
 
 import java.util.*;
@@ -34,6 +35,7 @@ public class Main {
     private static Main instance;
     public static List<UUID> removing = new ArrayList<>();
     public static Map<UUID, String> setting = new HashMap<>();
+    public static List<UUID> list = new ArrayList<>();
     public static Key<Value<String>> CMD;
 
     @Listener
@@ -53,7 +55,8 @@ public class Main {
     @Listener
     public void onPreInit(GamePreInitializationEvent e) {
         CMD = Key.builder()
-                .type(new TypeToken<Value<String>>(){})
+                .type(new TypeToken<Value<String>>() {
+                })
                 .query(DataQuery.of("Cmd"))
                 .id("commandnpcsec:cmd")
                 .name("Cmd")
@@ -75,6 +78,29 @@ public class Main {
             sendMessage(player, "&aSuccessfully removed all commands");
             return;
         }
+
+        if (list.contains(player.getUniqueId())) {
+            if (ev.getTargetEntity().get(Settings.class).isPresent()) {
+                String cmd = ev.getTargetEntity().get(Settings.class).get().getCmd();
+                List<String> commands = new ArrayList<>();
+
+                if (cmd.contains("#")) {
+                    commands = Arrays.asList(cmd.split("#"));
+                } else {
+                    commands.add(cmd);
+                }
+
+                sendMessage(player, "&a&lAttached commands:");
+                for (int i = 0; i < commands.size(); i++) {
+                    sendMessage(player, "&7#" + (i + 1) + " &a" + commands.get(i));
+                }
+            } else {
+                sendMessage(player, "&cThis entity doesn't have any command attached!");
+            }
+            list.remove(player.getUniqueId());
+            return;
+        }
+
 
         if (ev.getTargetEntity().get(Settings.class).isPresent()) {
             ev.setCancelled(true);
@@ -106,36 +132,43 @@ public class Main {
         CommandSpec setcommand = CommandSpec.builder().description(Text.of("Sets a command to a npc"))
                 .permission("commandnpcsec.set")
                 .arguments(GenericArguments.remainingJoinedStrings(Text.of("command")))
-                .executor(new CommandExecutor() {
-                    @Override
-                    public CommandResult execute(CommandSource commandSource, CommandContext commandContext) throws CommandException {
-                        if (!(commandSource instanceof Player)) return CommandResult.empty();
-                        Player player = (Player) commandSource;
+                .executor((commandSource, commandContext) -> {
+                    if (!(commandSource instanceof Player)) return CommandResult.empty();
+                    Player player = (Player) commandSource;
 
-                        setting.put(player.getUniqueId(), commandContext.<String>getOne("command").get());
-                        sendMessage(player, "&aClick an entity you want to make a command NPC");
+                    setting.put(player.getUniqueId(), commandContext.<String>getOne("command").get());
+                    sendMessage(player, "&aClick an entity you want to make a command NPC");
 
-                        return CommandResult.success();
-                    }
+                    return CommandResult.success();
                 }).build();
 
         CommandSpec removecommand = CommandSpec.builder().description(Text.of("Removes all commands from a npc"))
                 .permission("commandnpcsec.remove")
-                .executor(new CommandExecutor() {
-                    @Override
-                    public CommandResult execute(CommandSource commandSource, CommandContext commandContext) throws CommandException {
-                        if (!(commandSource instanceof Player)) return CommandResult.empty();
-                        Player player = (Player) commandSource;
+                .executor((commandSource, commandContext) -> {
+                    if (!(commandSource instanceof Player)) return CommandResult.empty();
+                    Player player = (Player) commandSource;
 
-                        removing.add(player.getUniqueId());
-                        sendMessage(player, "&aClick an entity to remove all commands from");
+                    removing.add(player.getUniqueId());
+                    sendMessage(player, "&aClick an entity to remove all commands from");
 
-                        return CommandResult.success();
-                    }
+                    return CommandResult.success();
+                }).build();
+
+        CommandSpec listcommand = CommandSpec.builder().description(Text.of("List of all commands of a npc"))
+                .permission("commandnpcsec.list")
+                .executor((commandSource, commandContext) -> {
+                    if (!(commandSource instanceof Player)) return CommandResult.empty();
+                    Player player = (Player) commandSource;
+
+                    list.add(player.getUniqueId());
+                    sendMessage(player, "&aClick an entity to see all commands it has attached");
+
+                    return CommandResult.success();
                 }).build();
 
         Sponge.getCommandManager().register(getInstance(), setcommand, "setcommandnpc");
         Sponge.getCommandManager().register(getInstance(), removecommand, "removecommandnpc");
+        Sponge.getCommandManager().register(getInstance(), listcommand, "listcommandnpc");
     }
 
     public static String color(String string) {
@@ -143,8 +176,14 @@ public class Main {
     }
 
     public static void sendMessage(CommandSource sender, String message) {
-        if (sender == null) { return; }
+        if (sender == null) {
+            return;
+        }
         sender.sendMessage(TextSerializers.FORMATTING_CODE.deserialize(color(message)));
+    }
+
+    public static Text getText(String message) {
+        return TextSerializers.FORMATTING_CODE.deserialize(color(message));
     }
 
     public static Main getInstance() {
